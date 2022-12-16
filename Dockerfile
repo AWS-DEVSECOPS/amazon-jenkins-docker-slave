@@ -1,22 +1,32 @@
-# This Dockerfile is used to build an image containing basic stuff to be used as a Jenkins slave build node.
-# It is based on instructions from https://wiki.jenkins-ci.org/display/JENKINS/Docker+Plugin and Dockerfile 
-# from https://hub.docker.com/r/evarga/jenkins-slave/
-
 FROM amazonlinux:latest
 
-# Install a basic SSH server GIT, UNZIP, LSOF and JDK 8
-RUN yum install -y openssh-server git unzip lsof java-1.8.0-openjdk-headless && yum clean all
-# update sshd settings, create jenkins user, set jenkins user pw, generate ssh keys
-RUN sed -i 's|session    required     pam_loginuid.so|session    optional     pam_loginuid.so|g' /etc/pam.d/sshd \
-    && mkdir -p /var/run/sshd \
-    && useradd -u 1000 -m -s /bin/bash jenkins \
-    && echo "jenkins:password" | chpasswd \
-    && /usr/bin/ssh-keygen -A \
-    && echo export JAVA_HOME="/`alternatives  --display java | grep best | cut -d "/" -f 2-6`" >> /etc/environment
+RUN yum update && \
+    yum install -qy git && \
+# Install a basic SSH server
+    yum install -qy openssh-server && \
+    sed -i 's|session    required     pam_loginuid.so|session    optional     pam_loginuid.so|g' /etc/pam.d/sshd && \
+    mkdir -p /var/run/sshd && \
+# Install JDK 11
+    yum install -qy java-11 && \
+# Install maven
+    yum install -qy maven && \
+# Install LSOF
+	yum install -qy lsof && \
+# Cleanup old packages
+    yum clean all && \
+# Add user jenkins to the image
+    adduser --quiet jenkins && \
+# Set password for the jenkins user (you may want to alter this).
+    echo "jenkins:password" | chpasswd && \
+    mkdir /home/jenkins/.m2
 
-# Set java environment
-ENV JAVA_HOME /etc/alternatives/jre
+# Copy authorized keys
+COPY .ssh/authorized_keys /home/jenkins/.ssh/authorized_keys
+
+RUN chown -R jenkins:jenkins /home/jenkins/.m2/ && \
+    chown -R jenkins:jenkins /home/jenkins/.ssh/
 
 # Standard SSH port
 EXPOSE 22
+
 CMD ["/usr/sbin/sshd", "-D"]
