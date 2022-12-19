@@ -1,3 +1,4 @@
+FROM amazonlinux:latest
 RUN yum update && \
     yum install -q -y git && \
 # Install a basic SSH server
